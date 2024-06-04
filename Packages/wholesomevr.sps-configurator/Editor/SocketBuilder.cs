@@ -31,7 +31,7 @@ namespace Wholesome
 
         public GameObject SpsObject => spsParent.gameObject;
 
-        public void Add(string name, Base.Offset offset, HumanBodyBones bone, string category = null,
+        internal void Add(string name, Base.Offset offset, HumanBodyBones bone, string category = null,
             string blendshape = null, bool auto = false,
             VRCFuryHapticSocket.AddLight light = VRCFuryHapticSocket.AddLight.Auto)
         {
@@ -41,7 +41,7 @@ namespace Wholesome
             socket.transform.localScale = Vector3.one;
         }
 
-        public void AddParent(string name, Base.Offset offsetLeft, Base.Offset offsetRight, HumanBodyBones boneLeft,
+        internal void AddParent(string name, Base.Offset offsetLeft, Base.Offset offsetRight, HumanBodyBones boneLeft,
             HumanBodyBones boneRight, string category = null,
             string blendshape = null, bool auto = false,
             VRCFuryHapticSocket.AddLight light = VRCFuryHapticSocket.AddLight.Auto)
