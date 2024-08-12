@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using com.vrcfury.api;
 using UnityEditor;
 using UnityEngine;
 using VRC.SDK3.Avatars.Components;
@@ -212,7 +213,7 @@ namespace Wholesome
             }
         }
 
-        public void AlignHands(SPSConfigurator.AvatarArmature armature)
+        public void AlignHands(GameObject avatarObject)
         {
             Vector3 Align(Transform transform)
             {
@@ -222,9 +223,9 @@ namespace Wholesome
                 return delta;
             }
             
-            var rightHandTransform = armature.FindBone(HumanBodyBones.RightHand);
+            var rightHandTransform = FuryUtils.GetBone(avatarObject, HumanBodyBones.RightHand).transform;
             var deltaRightHand = Align(rightHandTransform);
-            var leftHandTransform = armature.FindBone(HumanBodyBones.LeftHand);
+            var leftHandTransform = FuryUtils.GetBone(avatarObject, HumanBodyBones.LeftHand).transform;
             var deltaLeftHand = Align(leftHandTransform);
             AlignedHandLeft = new Offset(Hand.Positon, Vector3.Scale(Hand.EulerAngles, new Vector3(1, -1, 1)) + deltaLeftHand);
             Hand.EulerAngles += deltaRightHand;

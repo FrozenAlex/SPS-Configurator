@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Sockets;
+using com.vrcfury.api;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Animations;
@@ -17,21 +18,18 @@ namespace Wholesome
     public class SocketBuilder
     {
         private GameObject avatarObject;
-        private SPSConfigurator.AvatarArmature avatarArmature;
-        private string spsPath;
         private Transform spsParent;
 
-        public SocketBuilder(GameObject avatarObject, SPSConfigurator.AvatarArmature avatarArmature)
+        public SocketBuilder(GameObject avatarObject)
         {
             if (avatarObject.GetComponent<VRCAvatarDescriptor>() == null)
                 throw new ArgumentException("avatarObject doesn't have a VRC Avatar Descriptor");
             this.avatarObject = avatarObject;
-            this.avatarArmature = avatarArmature;
         }
 
         public GameObject SpsObject => spsParent.gameObject;
 
-        internal void Add(string name, Base.Offset offset, HumanBodyBones bone, string category = null,
+        public void Add(string name, Base.Offset offset, HumanBodyBones bone, string category = null,
             string blendshape = null, bool auto = false,
             VRCFuryHapticSocket.AddLight light = VRCFuryHapticSocket.AddLight.Auto)
         {
@@ -41,7 +39,7 @@ namespace Wholesome
             socket.transform.localScale = Vector3.one;
         }
 
-        internal void AddParent(string name, Base.Offset offsetLeft, Base.Offset offsetRight, HumanBodyBones boneLeft,
+        public void AddParent(string name, Base.Offset offsetLeft, Base.Offset offsetRight, HumanBodyBones boneLeft,
             HumanBodyBones boneRight, string category = null,
             string blendshape = null, bool auto = false,
             VRCFuryHapticSocket.AddLight light = VRCFuryHapticSocket.AddLight.Auto)
@@ -66,18 +64,6 @@ namespace Wholesome
             targetLeft.transform.localPosition =
                 Vector3.Scale(targetLeft.transform.localPosition, gameObject.transform.localScale);
             gameObject.transform.localScale = Vector3.one;
-        }
-
-        public void AddCategoryIconSet(string category)
-        {
-            var catTransform = spsParent.Find(category);
-            if (catTransform == null) return;
-            var fury = catTransform.gameObject.AddComponent<VRCFury>();
-            fury.Version = 2;
-            fury.config.features.Add(new SetIcon()
-            {
-                path = $"{spsPath ?? "SPS"}/{category}",
-            });
         }
 
         private VRCFuryHapticSocket CreateSocket(string name, string category, VRCFuryHapticSocket.AddLight light,
@@ -112,15 +98,17 @@ namespace Wholesome
 
         private void SetArmatureLinkedOffset(GameObject gameObject, HumanBodyBones bone, Base.Offset offset)
         {
-            var vrcf = gameObject.AddComponent<VRCFury>();
-            vrcf.Version = 2;
-            vrcf.config.features.Add(new ArmatureLink()
-            {
-                propBone = vrcf.gameObject,
-                boneOnAvatar = bone,
-                Version = 5
-            });
-            var transform = avatarArmature.FindBone(bone);
+            // var vrcf = gameObject.AddComponent<VRCFury>();
+            // vrcf.Version = 2;
+            // vrcf.config.features.Add(new ArmatureLink()
+            // {
+            //     propBone = vrcf.gameObject,
+            //     boneOnAvatar = bone,
+            //     Version = 5
+            // });
+            var link = FuryComponents.CreateArmatureLink(gameObject);
+            link.LinkTo(bone);
+            var transform = FuryUtils.GetBone(avatarObject, bone).transform;
             //gameObject.transform.position = transform.TransformPoint(offset.Positon);
             gameObject.transform.position = transform.position;
             gameObject.transform.rotation = transform.rotation;

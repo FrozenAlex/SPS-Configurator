@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using com.vrcfury.api;
 using UnityEngine;
 using UnityEditor;
 using VF.Builder;
@@ -81,30 +82,6 @@ namespace Wholesome
             window.Show();
         }
 
-        private string GetSPSMenuPath(GameObject avatarObject)
-        {
-            var furies = avatarObject.GetComponents<VRCFury>();
-            var allSpsOptions = furies
-                .SelectMany(fury =>
-                    fury.config.features.OfType<SpsOptions>()).ToList();
-            var spsOptions = allSpsOptions.FirstOrDefault();
-            if (spsOptions != null)
-            {
-                return spsOptions.menuPath;
-            }
-
-            var moveMenus = furies
-                .SelectMany(fury =>
-                    fury.config.features.OfType<MoveMenuItem>()).ToList();
-            var spsMoveMenu = moveMenus.FirstOrDefault(m => m.fromPath == "SPS");
-            if (spsMoveMenu != null)
-            {
-                return spsMoveMenu.toPath;
-            }
-
-            return "SPS";
-        }
-
         private void OnEnable()
         {
             logo = Resources.Load<Texture2D>("SPS Logo");
@@ -117,16 +94,6 @@ namespace Wholesome
         public void OnSelectionChange()
         {
             meshes = SelectedAvatar?.GetComponentsInChildren<SkinnedMeshRenderer>(true);
-            var selectedAvatar = SelectedAvatar;
-            if (selectedAvatar != null)
-            {
-                spsMenuPath = GetSPSMenuPath(SelectedAvatar.gameObject);
-            }
-            else
-            {
-                spsMenuPath = "SPS";
-            }
-
             Repaint();
         }
 
@@ -156,34 +123,6 @@ namespace Wholesome
                 }
 
                 return selectedAvatar;
-            }
-        }
-
-        public class AvatarArmature : IDisposable
-        {
-            public readonly GameObject AvatarObject;
-
-
-            public AvatarArmature(GameObject avatarObject)
-            {
-                this.AvatarObject = avatarObject;
-                VRCFArmatureUtils.WarmupCache(this.AvatarObject);
-            }
-
-            public Transform FindBone(HumanBodyBones findBone)
-            {
-                return VRCFArmatureUtils.FindBoneOnArmatureOrException(AvatarObject, findBone).transform;
-            }
-
-            public Transform FindBoneOrNull(HumanBodyBones findBone)
-            {
-                var bone = VRCFArmatureUtils.FindBoneOnArmatureOrNull(AvatarObject, findBone);
-                return bone == null ? null : bone.transform;
-            }
-
-            public void Dispose()
-            {
-                VRCFArmatureUtils.ClearCache();
             }
         }
 
@@ -270,74 +209,73 @@ namespace Wholesome
             var avatarBase = Bases.All[selectedBase].DeepCopy();
             VRCAvatarDescriptor vrcAvatar = SelectedAvatar;
             var avatarGameObject = vrcAvatar.gameObject;
-            var armature = new AvatarArmature(avatarGameObject);
             
             float bakedScale;
             if (selectedBase == 0)
             {
-                var torsoLength = armature.FindBone(HumanBodyBones.Hips)
-                    .InverseTransformPoint(armature.FindBone(HumanBodyBones.Neck).position)
+                var torsoLength = FuryUtils.GetBone(avatarGameObject, HumanBodyBones.Hips)
+                    .transform
+                    .InverseTransformPoint(FuryUtils.GetBone(avatarGameObject, HumanBodyBones.Neck).transform.position)
                     .magnitude;
                 bakedScale = torsoLength / avatarBase.DefaultTorsoLength;
                 
             }
             else
             {
-                var hipLength = (armature.FindBone(HumanBodyBones.Spine).position
-                                 - armature.FindBone(HumanBodyBones.Hips).position).magnitude;
+                var hipLength = (FuryUtils.GetBone(avatarGameObject, HumanBodyBones.Spine).transform.position
+                                 - FuryUtils.GetBone(avatarGameObject, HumanBodyBones.Hips).transform.position).magnitude;
                 bakedScale = hipLength / avatarBase.DefaultHipLength; 
             }
 
             //var scale = bakedScale / avatarGameObject.transform.lossyScale.y;
             avatarBase.Scale(bakedScale);
-            using (var avatarArmature = new AvatarArmature(avatarGameObject))
-            {
-                var head = avatarArmature.FindBone(HumanBodyBones.Head);
-                var mouthOffset = Base.GetMouth(vrcAvatar, head);
-                avatarBase.AlignHands(armature);
-                
-                var socketBuilder = new SocketBuilder(avatarGameObject, avatarArmature);
-                if (defaultOn)
-                {
-                    if (blowjobOn) socketBuilder.Add(BlowjobName, mouthOffset, HumanBodyBones.Head, blendshape: blowjobBlendshape.ToString(), light: VRCFuryHapticSocket.AddLight.Hole, auto: true);
-                    if (pussyOn) socketBuilder.Add(PussyName, avatarBase.Pussy, HumanBodyBones.Hips, blendshape: pussyBlendshape.ToString(), light: VRCFuryHapticSocket.AddLight.Hole, auto: true);
-                    if (analOn) socketBuilder.Add(AnalName, avatarBase.Anal, HumanBodyBones.Hips, blendshape: analBlendshape.ToString(), light: VRCFuryHapticSocket.AddLight.Hole);
-                    if (handjobOn)
-                    {
-                        if (handjobRightOn)
-                            socketBuilder.Add(HandjobRightName, avatarBase.HandRight, HumanBodyBones.RightHand, category: "Handjob", auto: true);
-                        if (handjobBothOn)
-                            socketBuilder.AddParent(HandjobDoubleName, avatarBase.HandLeft, avatarBase.HandRight,
-                                HumanBodyBones.LeftHand, HumanBodyBones.RightHand, "Handjob");
-                        if (handjobLeftOn)
-                            socketBuilder.Add(HandjobLeftName, avatarBase.HandLeft, HumanBodyBones.LeftHand, category: "Handjob", auto: true);
-                        socketBuilder.AddCategoryIconSet("Handjob");
-                    }
-                }
-                if (specialOn)
-                {
-                    if(titjobOn) socketBuilder.Add(TitjobName, avatarBase.Titjob, HumanBodyBones.Chest, "Special");
-                    if(assjobOn) socketBuilder.Add(AssjobName, avatarBase.Assjob, HumanBodyBones.Hips, "Special", light: VRCFuryHapticSocket.AddLight.Ring);
-                    if(thighjobOn) socketBuilder.AddParent(ThighjobName, avatarBase.ThighjobLeft, avatarBase.ThighjobRight, HumanBodyBones.LeftUpperLeg, HumanBodyBones.RightUpperLeg, "Special");
-                    socketBuilder.AddCategoryIconSet("Special");
-                }
 
-                if (feetOn)
+            var head = FuryUtils.GetBone(avatarGameObject, HumanBodyBones.Head).transform;
+            var mouthOffset = Base.GetMouth(vrcAvatar, head);
+            avatarBase.AlignHands(avatarGameObject);
+            
+            var socketBuilder = new SocketBuilder(avatarGameObject);
+            if (defaultOn)
+            {
+                if (blowjobOn) socketBuilder.Add(BlowjobName, mouthOffset, HumanBodyBones.Head, blendshape: blowjobBlendshape.ToString(), light: VRCFuryHapticSocket.AddLight.Hole, auto: true);
+                if (pussyOn) socketBuilder.Add(PussyName, avatarBase.Pussy, HumanBodyBones.Hips, blendshape: pussyBlendshape.ToString(), light: VRCFuryHapticSocket.AddLight.Hole, auto: true);
+                if (analOn) socketBuilder.Add(AnalName, avatarBase.Anal, HumanBodyBones.Hips, blendshape: analBlendshape.ToString(), light: VRCFuryHapticSocket.AddLight.Hole);
+                if (handjobOn)
                 {
-                    if(soleRightOn) socketBuilder.Add(SoleRightName, avatarBase.GetSole(Side.Right, selectedFootType), HumanBodyBones.RightFoot, "Feet", auto: true);
-                    if(footjobOn) socketBuilder.AddParent(FootjobName, avatarBase.GetFootjob(Side.Left, selectedFootType), avatarBase.GetFootjob(Side.Right, selectedFootType), HumanBodyBones.LeftFoot, HumanBodyBones.RightFoot, "Feet");
-                    if(soleLeftOn) socketBuilder.Add(SoleLeftName, avatarBase.GetSole(Side.Left, selectedFootType), HumanBodyBones.LeftFoot, "Feet", auto: true);
-                    socketBuilder.AddCategoryIconSet("Feet");
+                    if (handjobRightOn)
+                        socketBuilder.Add(HandjobRightName, avatarBase.HandRight, HumanBodyBones.RightHand, category: "Handjob", auto: true);
+                    if (handjobBothOn)
+                        socketBuilder.AddParent(HandjobDoubleName, avatarBase.HandLeft, avatarBase.HandRight,
+                            HumanBodyBones.LeftHand, HumanBodyBones.RightHand, "Handjob");
+                    if (handjobLeftOn)
+                        socketBuilder.Add(HandjobLeftName, avatarBase.HandLeft, HumanBodyBones.LeftHand, category: "Handjob", auto: true);
+                    // socketBuilder.AddCategoryIconSet("Handjob");
                 }
-                if (sfxOn)
+            }
+            if (specialOn)
+            {
+                if(titjobOn) socketBuilder.Add(TitjobName, avatarBase.Titjob, HumanBodyBones.Chest, "Special");
+                if(assjobOn) socketBuilder.Add(AssjobName, avatarBase.Assjob, HumanBodyBones.Hips, "Special", light: VRCFuryHapticSocket.AddLight.Ring);
+                if(thighjobOn) socketBuilder.AddParent(ThighjobName, avatarBase.ThighjobLeft, avatarBase.ThighjobRight, HumanBodyBones.LeftUpperLeg, HumanBodyBones.RightUpperLeg, "Special");
+                // socketBuilder.AddCategoryIconSet("Special");
+            }
+
+            if (feetOn)
+            {
+                if(soleRightOn) socketBuilder.Add(SoleRightName, avatarBase.GetSole(Side.Right, selectedFootType), HumanBodyBones.RightFoot, "Feet", auto: true);
+                if(footjobOn) socketBuilder.AddParent(FootjobName, avatarBase.GetFootjob(Side.Left, selectedFootType), avatarBase.GetFootjob(Side.Right, selectedFootType), HumanBodyBones.LeftFoot, HumanBodyBones.RightFoot, "Feet");
+                if(soleLeftOn) socketBuilder.Add(SoleLeftName, avatarBase.GetSole(Side.Left, selectedFootType), HumanBodyBones.LeftFoot, "Feet", auto: true);
+                // socketBuilder.AddCategoryIconSet("Feet");
+            }
+            if (sfxOn)
+            {
+                var pussy = socketBuilder.Get(PussyName);
+                var anal = socketBuilder.Get(AnalName);
+                if(sfxPussyOn && pussy != null) SFX.Apply(pussy);
+                if(sfxAnalOn && anal != null) SFX.Apply(anal);
+                if (sfxPussyOn && pussy != null || sfxAnalOn && anal != null)
                 {
-                    var sfx = new SFX();
-                    var pussy = socketBuilder.Get(PussyName);
-                    var anal = socketBuilder.Get(AnalName);
-                    if(sfxPussyOn && pussy != null) sfx.Apply(pussy);
-                    if(sfxAnalOn && anal != null) sfx.Apply(anal);
-                    if (sfxPussyOn && pussy != null || sfxAnalOn && anal != null)
-                        sfx.AddToggle(socketBuilder.SpsObject);
+                    SFX.AddToggle(socketBuilder.SpsObject);
                 }
             }
             
@@ -477,7 +415,7 @@ namespace Wholesome
             };
             using (new EditorGUI.DisabledScope(selectedAvatar == null))
             {
-                if (GUILayout.Button("Add test penetrator to Avatar", linkStyle, GUILayout.ExpandWidth(false)))
+                if (GUILayout.Button("Add test plug to Avatar", linkStyle, GUILayout.ExpandWidth(false)))
                 {
                     try
                     {
@@ -485,14 +423,11 @@ namespace Wholesome
                             "Packages/wholesomevr.sps-configurator/Assets/Actual Wholesome Lollipop.prefab");
                         var initiatedPrefab =
                             PrefabUtility.InstantiatePrefab(testPrefab, selectedAvatar.transform) as GameObject;
-                        using (var avatarArmature = new AvatarArmature(selectedAvatar.gameObject))
-                        {
-                            var head = avatarArmature.FindBone(HumanBodyBones.Head);
-                            var mouthOffset = Base.GetMouth(selectedAvatar, head);
-                            var mouthPosition = head.TransformPoint(mouthOffset.Positon) + new Vector3(0, 0, 0.25f);
-                            initiatedPrefab.transform.SetPositionAndRotation(mouthPosition,
-                                Quaternion.AngleAxis(-180, Vector3.left));
-                        }
+                        var head = FuryUtils.GetBone(selectedAvatar.gameObject, HumanBodyBones.Head).transform;
+                        var mouthOffset = Base.GetMouth(selectedAvatar, head);
+                        var mouthPosition = head.TransformPoint(mouthOffset.Positon) + new Vector3(0, 0, 0.25f);
+                        initiatedPrefab.transform.SetPositionAndRotation(mouthPosition,
+                            Quaternion.AngleAxis(-180, Vector3.left));
                     }
                     catch (Exception e)
                     {
