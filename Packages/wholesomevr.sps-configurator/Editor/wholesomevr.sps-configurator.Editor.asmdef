@@ -1,13 +1,11 @@
 {
     "name": "wholesomevr.sps-configurator.Editor",
+    "rootNamespace": "",
     "references": [
         "VRC.SDK3A",
         "VRC.SDK3A.Editor",
         "VRC.SDKBase",
         "VRC.SDKBase.Editor",
-        "wholesomevr.sps-configurator",
-        "VRCFury",
-        "VRCFury-Editor",
         "com.vrcfury.api"
     ],
     "includePlatforms": [

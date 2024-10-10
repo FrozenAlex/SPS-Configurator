@@ -1,17 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net.Sockets;
 using com.vrcfury.api;
+using com.vrcfury.api.Components;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Animations;
-using VF.Component;
-using VF.Model;
-using VF.Model.Feature;
-using VF.Model.StateAction;
 using VRC.SDK3.Avatars.Components;
-using Object = UnityEngine.Object;
 
 namespace Wholesome
 {
@@ -29,35 +22,46 @@ namespace Wholesome
 
         public GameObject SpsObject => spsParent.gameObject;
 
-        public void Add(string name, Base.Offset offset, HumanBodyBones bone, string category = null,
+        public FurySocket Add(string name, Base.Offset offset, HumanBodyBones bone, string category = null,
             string blendshape = null, bool auto = false,
-            VRCFuryHapticSocket.AddLight light = VRCFuryHapticSocket.AddLight.Auto)
+            FurySocket.Mode mode = FurySocket.Mode.Auto)
         {
-            var socket = CreateSocket(name, category, light, auto, blendshape);
-            SetArmatureLinkedOffset(socket.gameObject, bone, offset);
-            AddSocketToAvatar(socket.gameObject, category);
-            socket.transform.localScale = Vector3.one;
+            var (obj, socket) = CreateSocket(name, category, mode, auto, blendshape);
+            SetArmatureLinkedOffset(obj, bone, offset);
+            AddSocketToAvatar(obj, category);
+            obj.transform.localScale = Vector3.one;
+            return socket;
         }
+
+        // public void Add(string name, Locator.Pose pose, HumanBodyBones bone, string category = null,
+        //     string blendshape = null, bool auto = false,
+        //     FurySocket.Mode mode = FurySocket.Mode.Auto)
+        // {
+        //     var socket = CreateSocket(name, category, light, auto, blendshape);
+        //     SetArmatureLinkedOffset(socket.gameObject, bone, pose);
+        //     AddSocketToAvatar(socket.gameObject, category);
+        //     socket.transform.localScale = Vector3.one;
+        // }
 
         public void AddParent(string name, Base.Offset offsetLeft, Base.Offset offsetRight, HumanBodyBones boneLeft,
             HumanBodyBones boneRight, string category = null,
             string blendshape = null, bool auto = false,
-            VRCFuryHapticSocket.AddLight light = VRCFuryHapticSocket.AddLight.Auto)
+            FurySocket.Mode mode = FurySocket.Mode.Auto)
         {
             var gameObject = new GameObject(name);
-            var socket = CreateSocket(name, category, light, auto, blendshape);
-            socket.gameObject.name = $"{name} Socket";
-            socket.transform.SetParent(gameObject.transform, true);
-            
+            var (obj, socket) = CreateSocket(name, category, mode, auto, blendshape);
+            obj.name = $"{name} Socket";
+            obj.transform.SetParent(gameObject.transform, true);
+
             var targetLeft = new GameObject($"{name} Target Left");
             SetArmatureLinkedOffset(targetLeft, boneLeft, offsetLeft);
             targetLeft.transform.SetParent(gameObject.transform, true);
-            
+
             var targetRight = new GameObject($"{name} Target Right");
             SetArmatureLinkedOffset(targetRight, boneRight, offsetRight);
             targetRight.transform.SetParent(gameObject.transform, true);
 
-            SetParentConstraint(socket.gameObject, targetLeft.transform, targetRight.transform);
+            SetParentConstraint(obj, targetLeft.transform, targetRight.transform);
             AddSocketToAvatar(gameObject, category);
             targetRight.transform.localPosition =
                 Vector3.Scale(targetRight.transform.localPosition, gameObject.transform.localScale);
@@ -66,34 +70,19 @@ namespace Wholesome
             gameObject.transform.localScale = Vector3.one;
         }
 
-        private VRCFuryHapticSocket CreateSocket(string name, string category, VRCFuryHapticSocket.AddLight light,
+        private (GameObject, FurySocket) CreateSocket(string name, string category, FurySocket.Mode mode,
             bool auto, string blendshape)
         {
-            var socket = new GameObject(name);
-            VRCFuryHapticSocket socketVrcf = socket.AddComponent<VRCFuryHapticSocket>();
-            socketVrcf.Version = 7;
-            socketVrcf.addLight = light;
+            var obj = new GameObject(name);
+            var socket = FuryComponents.CreateSocket(obj);
+            socket.SetMode(mode);
+            socket.SetName(String.IsNullOrWhiteSpace(category) ? name : $"{category}/{name}");
+            if (!auto) socket.SetAutoOff();
+            if (blendshape == null) return (obj, socket);
 
-            socketVrcf.name = String.IsNullOrWhiteSpace(category) ? name : $"{category}/{name}";
-            socketVrcf.enableAuto = auto;
-
-            if (blendshape == null) return socketVrcf;
-
-            var state = new State();
-            state.actions.Add(new BlendShapeAction
-            {
-                blendShape = blendshape
-            });
-            socketVrcf.enableDepthAnimations = true;
-            socketVrcf.depthActions.Add(new VRCFuryHapticSocket.DepthAction
-            {
-                state = state,
-                enableSelf = true,
-                startDistance = 0.05f,
-                endDistance = 0,
-                smoothingSeconds = 0,
-            });
-            return socketVrcf;
+            var action = socket.AddDepthActions(new Vector2(0.05f, 0), 0, true);
+            action.AddBlendshape(blendshape, 100);
+            return (obj, socket);
         }
 
         private void SetArmatureLinkedOffset(GameObject gameObject, HumanBodyBones bone, Base.Offset offset)
@@ -114,6 +103,14 @@ namespace Wholesome
             gameObject.transform.rotation = transform.rotation;
             gameObject.transform.Translate(offset.Positon);
             gameObject.transform.Rotate(offset.EulerAngles);
+        }
+
+        private void SetArmatureLinkedOffset(GameObject gameObject, HumanBodyBones bone, Locator.Pose pose)
+        {
+            var link = FuryComponents.CreateArmatureLink(gameObject);
+            link.LinkTo(bone);
+            gameObject.transform.position = pose.Position;
+            gameObject.transform.eulerAngles = pose.EulerAngles;
         }
 
         private void SetParentConstraint(GameObject gameObject, Transform targetLeft, Transform targetRight)

@@ -1,1 +1,0 @@
-# wholesomevr.sps-configurator by Alex

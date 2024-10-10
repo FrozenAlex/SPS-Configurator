@@ -1,20 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
+﻿using System.IO;
 using System.Linq;
 using com.vrcfury.api;
 using UnityEditor;
-using UnityEditor.Animations;
 using UnityEngine;
-using UnityEditor.PackageManager;
-using VF;
-using VF.Component;
-using VF.Model;
-using VF.Model.Feature;
-using VF.Model.StateAction;
-using VF.Utils;
-using Object = UnityEngine.Object;
 using PackageInfo = UnityEditor.PackageManager.PackageInfo;
+using com.vrcfury.api.Components;
 
 namespace Wholesome
 {
@@ -39,7 +29,7 @@ namespace Wholesome
             var prefabPath = Path.Join(fullDestPath, "SFX.prefab");
 
             var prefabExists = File.Exists(prefabPath);
-            
+
             foreach (var path in assetPaths)
             {
                 string relativePath = path.Substring(SourcePath.Length);
@@ -51,7 +41,7 @@ namespace Wholesome
                 }
             }
             var prefab = PrefabUtility.LoadPrefabContents(prefabPath);
-            
+
             // Prefab was newly created, need to add Full Controller and change audio clips
             if (!prefabExists)
             {
@@ -61,7 +51,7 @@ namespace Wholesome
                 ctr.AddController(fx as RuntimeAnimatorController);
                 ctr.AddGlobalParam("WH_SFX_Depth");
                 ctr.AddGlobalParam("WH_SFX_On");
-            
+
                 foreach (var audioSource in prefab.GetComponentsInChildren<AudioSource>(true))
                 {
                     var clipPath = AssetDatabase.GetAssetPath(audioSource.clip);
@@ -75,52 +65,25 @@ namespace Wholesome
             return prefabPath;
         }
 
-        public static void Apply(Transform socketTransform)
+        public static void Apply(GameObject gameObject, FurySocket socket)
         {
             var path = CopyAssets();
             var sfxPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
-            var socket = socketTransform.GetComponent<VRCFuryHapticSocket>();
-            var sfx = ((GameObject)PrefabUtility.InstantiatePrefab(sfxPrefab, socketTransform)).transform;
-            socket.enableDepthAnimations = true;
-            var fxState = new State();
-            fxState.actions.Add(new FxFloatAction()
-            {
-                name = "WH_SFX_Depth"
-            });
-            socket.depthActions.Add(new VRCFuryHapticSocket.DepthAction
-            {
-                state = fxState,
-                enableSelf = true,
-                startDistance = 0,
-                endDistance = -0.5f,
-                smoothingSeconds = 0,
-            });
+            var sfxObject = (GameObject)PrefabUtility.InstantiatePrefab(sfxPrefab, gameObject.transform);
 
-            socket.enableActiveAnimation = true;
-            socket.activeActions = new State();
-            socket.activeActions.actions.Add(new ObjectToggleAction
-            {
-                obj = sfx.gameObject
-            });
+            socket.AddDepthActions(new Vector2(-.5f, 0), 0, true)
+                .AddAap("WH_SFX_Depth", 1);
+            socket.GetActiveActions()
+                .AddTurnOn(sfxObject);
         }
 
         public static void AddToggle(GameObject spsObject)
         {
-            // TODO: Add API to VRCF
-            // var toggle = FuryComponents.CreateToggle(spsObject);
-            // toggle.SetDefaultOn();
-            // toggle.SetSaved(); 
-            // toggle.SetGlobalParam("WH_SFX_On");
-            var fury = spsObject.AddComponent<VRCFury>();
-            fury.Version = 3;
-            fury.content = new Toggle()
-            {
-                name = "SPS/Options/Sound FX",
-                saved = true,
-                defaultOn = true,
-                useGlobalParam = true,
-                globalParam = "WH_SFX_On"
-            };
+            var toggle = FuryComponents.CreateToggle(spsObject);
+            toggle.SetMenuPath("SPS/Options/Sound FX");
+            toggle.SetGlobalParameter("WH_SFX_On");
+            toggle.SetSaved();
+            toggle.SetDefaultOn();
         }
     }
 }
