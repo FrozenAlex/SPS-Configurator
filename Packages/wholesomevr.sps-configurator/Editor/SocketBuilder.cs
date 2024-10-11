@@ -105,13 +105,13 @@ namespace Wholesome
             gameObject.transform.Rotate(offset.EulerAngles);
         }
 
-        private void SetArmatureLinkedOffset(GameObject gameObject, HumanBodyBones bone, Locator.Pose pose)
-        {
-            var link = FuryComponents.CreateArmatureLink(gameObject);
-            link.LinkTo(bone);
-            gameObject.transform.position = pose.Position;
-            gameObject.transform.eulerAngles = pose.EulerAngles;
-        }
+        // private void SetArmatureLinkedOffset(GameObject gameObject, HumanBodyBones bone, Locator.Pose pose)
+        // {
+        //     var link = FuryComponents.CreateArmatureLink(gameObject);
+        //     link.LinkTo(bone);
+        //     gameObject.transform.position = pose.Position;
+        //     gameObject.transform.eulerAngles = pose.EulerAngles;
+        // }
 
         private void SetParentConstraint(GameObject gameObject, Transform targetLeft, Transform targetRight)
         {
